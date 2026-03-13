@@ -44,3 +44,15 @@ export interface User {
     name: string;
     email: string;
 }
+
+export interface Booking {
+    sessionId: string;
+    studentName: string;
+    mentorName: string;
+    subjectName: string;
+    sessionDateTime: string;
+    duration: number;
+    paymentStatus: "pending" | "confirmed";
+    sessionStatus: "pending" | "confirmed" | "completed";
+    meetingLink?: string;
+}
