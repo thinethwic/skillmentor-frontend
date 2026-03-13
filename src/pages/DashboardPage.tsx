@@ -16,6 +16,7 @@ export default function DashboardPage() {
     async function fetchEnrollments() {
       if (!user) return;
       const token = await getToken({ template: "skillmentor-auth" });
+      console.log(token);
       if (!token) return;
       try {
         console.log("Fetching enrollments with token:", token);

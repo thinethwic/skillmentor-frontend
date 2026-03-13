@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MentorCard } from "@/components/MentorCard";
 import { getPublicMentors } from "@/lib/api";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@clerk/clerk-react";
 import type { Mentor } from "@/types";
@@ -13,8 +13,13 @@ export default function HomePage() {
 
   useEffect(() => {
     getPublicMentors()
-      .then((data) => setMentors(data.content))
-      .catch(console.error)
+      .then((data) => {
+        console.log("Fetched mentors:", data);
+        setMentors(data.content ?? []);
+      })
+      .catch((error) => {
+        console.error("Error fetching mentors:", error);
+      })
       .finally(() => setLoading(false));
   }, []);
 
