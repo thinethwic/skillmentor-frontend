@@ -22,11 +22,15 @@ interface Props {
   onRefresh: () => void;
 }
 
+interface SelectedSession {
+  id: number;
+  paymentStatus: string;
+  sessionStatus: string;
+}
+
 export function BookingsTable({ bookings, onRefresh }: Props) {
   const { patch } = useApi();
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
-    null,
-  );
+  const [selected, setSelected] = useState<SelectedSession | null>(null);
 
   const confirmPayment = async (id: number) => {
     try {
@@ -113,7 +117,13 @@ export function BookingsTable({ bookings, onRefresh }: Props) {
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => setSelectedSessionId(booking.id)}
+                      onClick={() =>
+                        setSelected({
+                          id: booking.id,
+                          paymentStatus: booking.paymentStatus,
+                          sessionStatus: booking.sessionStatus,
+                        })
+                      }
                     >
                       Add Meeting Link
                     </Button>
@@ -137,11 +147,13 @@ export function BookingsTable({ bookings, onRefresh }: Props) {
       </div>
 
       <BookingActionsDialog
-        open={selectedSessionId !== null}
+        open={selected !== null}
         onOpenChange={(open) => {
-          if (!open) setSelectedSessionId(null);
+          if (!open) setSelected(null);
         }}
-        sessionId={selectedSessionId}
+        sessionId={selected?.id ?? null}
+        paymentStatus={selected?.paymentStatus ?? null}
+        sessionStatus={selected?.sessionStatus ?? null}
         onSuccess={onRefresh}
       />
     </>

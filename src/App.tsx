@@ -13,6 +13,7 @@ import MentorsPage from "@/pages/admin/Mentorspage";
 import CreateMentorPage from "@/pages/admin/Creatementorpage";
 import ManageBookingsPage from "@/pages/admin/Managebookingspage";
 import SubjectsListPage from "./pages/admin/SubjectList";
+import { MentorProfilePage } from "./components/MentorProfilePage";
 
 function App() {
   return (
@@ -22,6 +23,9 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Public mentor profile — no auth required */}
+          <Route path="/mentors/:id/profile" element={<MentorProfilePage />} />
 
           <Route
             path="/dashboard"

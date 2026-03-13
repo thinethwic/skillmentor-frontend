@@ -33,6 +33,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
+// KEY FIX: isCertified uses z.boolean() without .default()
+// Defaults belong in useForm({ defaultValues }), not in the Zod schema.
+// Mixing .default() in the schema causes react-hook-form to infer
+// the type as boolean | undefined which breaks the Control<T> generics.
 
 const mentorSchema = z.object({
   mentorId: z.string().min(1, "Mentor ID is required"),
@@ -43,27 +47,20 @@ const mentorSchema = z.object({
   title: z.string().optional().or(z.literal("")),
   profession: z.string().optional().or(z.literal("")),
   company: z.string().optional().or(z.literal("")),
-  experienceYears: z
-    .number({ invalid_type_error: "Must be a number" })
-    .int()
-    .min(0)
-    .max(60)
-    .optional()
-    .or(z.literal(undefined)),
+  experienceYears: z.number().int().min(0).max(60).optional(),
   bio: z.string().max(2000).optional().or(z.literal("")),
   profileImageUrl: z
     .string()
     .url("Must be a valid URL")
     .optional()
     .or(z.literal("")),
-  isCertified: z.boolean().default(false),
+  isCertified: z.boolean(), // ← no .default() here
   startYear: z
-    .number({ invalid_type_error: "Must be a year" })
+    .number()
     .int()
     .min(1990)
     .max(new Date().getFullYear())
-    .optional()
-    .or(z.literal(undefined)),
+    .optional(),
 });
 
 type MentorFormValues = z.infer<typeof mentorSchema>;
@@ -124,7 +121,9 @@ export default function MentorsPage() {
       company: "",
       bio: "",
       profileImageUrl: "",
-      isCertified: false,
+      isCertified: false, // ← default lives here
+      experienceYears: undefined,
+      startYear: undefined,
     },
   });
 
@@ -144,7 +143,6 @@ export default function MentorsPage() {
     try {
       const created = await post<Mentor>("/api/v1/mentors", {
         ...values,
-        mentorId: values.mentorId,
         phoneNumber: values.phoneNumber || undefined,
         title: values.title || undefined,
         profession: values.profession || undefined,
@@ -155,17 +153,20 @@ export default function MentorsPage() {
         startYear: values.startYear ?? undefined,
       });
       setCreatedMentor(created);
-      toast.success("Mentor created successfully!");
+      toast.success("Mentor created", {
+        description: `${created.firstName} ${created.lastName} has been added.`,
+      });
       form.reset();
       fetchMentors();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to create mentor");
+    } catch (err: unknown) {
+      toast.error("Failed to create mentor", {
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
     }
   };
 
   return (
     <div className="p-8">
-      {/* Page header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Mentors</h1>
@@ -187,7 +188,7 @@ export default function MentorsPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ── Create tab ──────────────────────────────────────────────────── */}
+        {/* ── Create tab ── */}
         <TabsContent value="create">
           {createdMentor ? (
             <Card className="max-w-md rounded-2xl border-green-200 bg-green-50">
@@ -508,7 +509,7 @@ export default function MentorsPage() {
           )}
         </TabsContent>
 
-        {/* ── List tab ─────────────────────────────────────────────────────── */}
+        {/* ── List tab ── */}
         <TabsContent value="list">
           {loadingMentors ? (
             <div className="flex items-center gap-2 text-muted-foreground py-8">

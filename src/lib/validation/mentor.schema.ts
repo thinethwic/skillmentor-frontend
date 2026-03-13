@@ -1,22 +1,36 @@
 import { z } from "zod";
 
+const currentYear = new Date().getFullYear();
+
 export const mentorSchema = z.object({
-    firstName: z.string().min(1, "First name is required"),
-    lastName: z.string().min(1, "Last name is required"),
-    email: z.string().email("Enter a valid email address"),
-    phoneNumber: z.string().optional(),
-    title: z.string().optional(),
-    profession: z.string().optional(),
-    company: z.string().optional(),
-    experienceYears: z.coerce.number().min(0, "Experience cannot be negative").optional(),
-    bio: z.string().max(1000, "Bio is too long").optional(),
-    profileImageUrl: z.union([z.string().url("Enter a valid image URL"), z.literal("")]).optional(),
-    isCertified: z.boolean().default(false),
+    firstName: z.string().trim().min(1, "First name is required"),
+    lastName: z.string().trim().min(1, "Last name is required"),
+    email: z.string().trim().email("Email must be valid"),
+
+    phoneNumber: z.string().trim().optional(),
+    title: z.string().trim().optional(),
+    profession: z.string().trim().optional(),
+    company: z.string().trim().optional(),
+    bio: z.string().trim().optional(),
+
+    profileImageUrl: z
+        .union([
+            z.literal(""),
+            z.string().trim().url("Profile image URL must be valid"),
+        ])
+        .optional(),
+
+    experienceYears: z.coerce
+        .number()
+        .min(0, "Experience must be 0 or more"),
+
     startYear: z.coerce
         .number()
-        .min(1980, "Invalid year")
-        .max(new Date().getFullYear(), "Start year cannot be in the future")
-        .optional(),
+        .min(1900, "Start year is too old")
+        .max(currentYear, "Start year cannot be in the future"),
+
+    isCertified: z.boolean(),
 });
 
-export type MentorFormValues = z.infer<typeof mentorSchema>;
+export type MentorFormInput = z.input<typeof mentorSchema>;
+export type MentorFormValues = z.output<typeof mentorSchema>;

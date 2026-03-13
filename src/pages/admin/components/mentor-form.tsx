@@ -6,8 +6,10 @@ import { toast } from "sonner";
 
 import {
   mentorSchema,
+  type MentorFormInput,
   type MentorFormValues,
 } from "@/lib/validation/mentor.schema";
+
 import { useApi } from "@/lib/api";
 
 import { Button } from "@/components/ui/button";
@@ -18,9 +20,11 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+
 import {
   Form,
   FormControl,
@@ -33,9 +37,10 @@ import {
 export function MentorForm() {
   const navigate = useNavigate();
   const { post } = useApi();
+
   const [submitting, setSubmitting] = useState(false);
 
-  const form = useForm<MentorFormValues>({
+  const form = useForm<MentorFormInput, unknown, MentorFormValues>({
     resolver: zodResolver(mentorSchema),
     defaultValues: {
       firstName: "",
@@ -46,10 +51,10 @@ export function MentorForm() {
       profession: "",
       company: "",
       experienceYears: 0,
+      startYear: new Date().getFullYear(),
       bio: "",
       profileImageUrl: "",
       isCertified: false,
-      startYear: new Date().getFullYear(),
     },
   });
 
@@ -59,23 +64,10 @@ export function MentorForm() {
 
       const mentor = await post<{ id: number; mentorId?: string }>(
         "/api/v1/mentors",
-        {
-          firstName: values.firstName,
-          lastName: values.lastName,
-          email: values.email,
-          phoneNumber: values.phoneNumber || undefined,
-          title: values.title,
-          profession: values.profession || undefined,
-          company: values.company || undefined,
-          experienceYears: values.experienceYears,
-          bio: values.bio || undefined,
-          profileImageUrl: values.profileImageUrl || undefined,
-          isCertified: values.isCertified,
-          startYear: values.startYear,
-        },
+        values,
       );
 
-      toast.success("Mentor profile created successfully");
+      toast.success("Mentor created successfully");
 
       if (mentor?.mentorId) {
         navigate(`/mentors/${mentor.mentorId}`);
@@ -95,16 +87,14 @@ export function MentorForm() {
     <Card className="mx-auto max-w-3xl rounded-2xl">
       <CardHeader>
         <CardTitle>Create Mentor</CardTitle>
-        <CardDescription>
-          Add a new mentor and complete their profile.
-        </CardDescription>
+        <CardDescription>Add a new mentor profile</CardDescription>
       </CardHeader>
 
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Row: First Name + Last Name */}
-            <div className="grid gap-4 md:grid-cols-2">
+            {/* FIRST NAME / LAST NAME */}
+            <div className="grid md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="firstName"
@@ -118,6 +108,7 @@ export function MentorForm() {
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
                 name="lastName"
@@ -133,7 +124,7 @@ export function MentorForm() {
               />
             </div>
 
-            {/* Email — full width */}
+            {/* EMAIL */}
             <FormField
               control={form.control}
               name="email"
@@ -143,7 +134,7 @@ export function MentorForm() {
                   <FormControl>
                     <Input
                       type="email"
-                      placeholder="jane@example.com"
+                      placeholder="mentor@email.com"
                       {...field}
                     />
                   </FormControl>
@@ -152,21 +143,22 @@ export function MentorForm() {
               )}
             />
 
-            {/* Row: Phone + Title */}
-            <div className="grid gap-4 md:grid-cols-2">
+            {/* PHONE / TITLE */}
+            <div className="grid md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="phoneNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
+                    <FormLabel>Phone</FormLabel>
                     <FormControl>
-                      <Input placeholder="+1 555 000 0000" {...field} />
+                      <Input placeholder="+94 77 1234567" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
                 name="title"
@@ -185,8 +177,8 @@ export function MentorForm() {
               />
             </div>
 
-            {/* Row: Profession + Company */}
-            <div className="grid gap-4 md:grid-cols-2">
+            {/* PROFESSION / COMPANY */}
+            <div className="grid md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="profession"
@@ -200,6 +192,7 @@ export function MentorForm() {
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
                 name="company"
@@ -207,7 +200,7 @@ export function MentorForm() {
                   <FormItem>
                     <FormLabel>Company</FormLabel>
                     <FormControl>
-                      <Input placeholder="Acme Corp" {...field} />
+                      <Input placeholder="Google" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -215,27 +208,28 @@ export function MentorForm() {
               />
             </div>
 
-            {/* Row: Experience Years + Start Year */}
-            <div className="grid gap-4 md:grid-cols-2">
+            {/* EXPERIENCE / START YEAR */}
+            <div className="grid md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="experienceYears"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Experience (years)</FormLabel>
+                    <FormLabel>Experience Years</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
-                        min={0}
-                        placeholder="5"
-                        value={field.value ?? 0}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        value={
+                          field.value === undefined ? "" : String(field.value)
+                        }
+                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
                 name="startYear"
@@ -245,8 +239,10 @@ export function MentorForm() {
                     <FormControl>
                       <Input
                         type="number"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        value={
+                          field.value === undefined ? "" : String(field.value)
+                        }
+                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -255,7 +251,7 @@ export function MentorForm() {
               />
             </div>
 
-            {/* Profile Image URL — full width */}
+            {/* PROFILE IMAGE */}
             <FormField
               control={form.control}
               name="profileImageUrl"
@@ -264,7 +260,7 @@ export function MentorForm() {
                   <FormLabel>Profile Image URL</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="https://example.com/profile.jpg"
+                      placeholder="https://image.com/photo.jpg"
                       {...field}
                     />
                   </FormControl>
@@ -273,7 +269,7 @@ export function MentorForm() {
               )}
             />
 
-            {/* Bio — full width textarea matching subject description */}
+            {/* BIO */}
             <FormField
               control={form.control}
               name="bio"
@@ -282,8 +278,8 @@ export function MentorForm() {
                   <FormLabel>Bio</FormLabel>
                   <FormControl>
                     <Textarea
+                      placeholder="Write mentor bio..."
                       rows={5}
-                      placeholder="Write a short mentor bio..."
                       {...field}
                     />
                   </FormControl>
@@ -292,12 +288,12 @@ export function MentorForm() {
               )}
             />
 
-            {/* Certified checkbox */}
+            {/* CERTIFIED */}
             <FormField
               control={form.control}
               name="isCertified"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center gap-3 rounded-lg border p-4">
+                <FormItem className="flex items-center gap-3 border rounded-lg p-4">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
@@ -309,7 +305,7 @@ export function MentorForm() {
               )}
             />
 
-            {/* Actions — matches subject form footer exactly */}
+            {/* BUTTONS */}
             <div className="flex justify-end gap-3">
               <Button
                 type="button"
@@ -318,6 +314,7 @@ export function MentorForm() {
               >
                 Cancel
               </Button>
+
               <Button type="submit" disabled={submitting}>
                 {submitting ? "Saving..." : "Create Mentor"}
               </Button>

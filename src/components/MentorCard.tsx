@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -7,6 +8,7 @@ import {
   GraduationCap,
   ShieldCheck,
   ThumbsUp,
+  UserCircle2,
 } from "lucide-react";
 import type { Mentor } from "@/types";
 import { SchedulingModal } from "@/components/SchedulingModel";
@@ -23,6 +25,7 @@ export function MentorCard({ mentor }: MentorCardProps) {
   const [isSignupDialogOpen, setIsSignupDialogOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const { isSignedIn } = useAuth();
+  const navigate = useNavigate();
 
   const mentorName = `${mentor.firstName} ${mentor.lastName}`;
   const hasSubjects = mentor.subjects.length > 0;
@@ -39,6 +42,10 @@ export function MentorCard({ mentor }: MentorCardProps) {
     setIsSchedulingModalOpen(true);
   };
 
+  const handleViewProfile = () => {
+    navigate(`/mentors/${mentor.id}/profile`);
+  };
+
   return (
     <>
       <Card className="flex flex-col h-full">
@@ -52,7 +59,12 @@ export function MentorCard({ mentor }: MentorCardProps) {
                   {mentor.positiveReviews}% positive reviews
                 </p>
               </div>
-              <div className="flex items-center space-x-2">
+
+              {/* Mentor name — now a clickable link to profile */}
+              <button
+                onClick={handleViewProfile}
+                className="flex items-center space-x-2 group hover:opacity-80 transition-opacity text-left"
+              >
                 {mentor.profileImageUrl ? (
                   <img
                     src={mentor.profileImageUrl}
@@ -64,8 +76,11 @@ export function MentorCard({ mentor }: MentorCardProps) {
                     {mentor.firstName.charAt(0)}
                   </div>
                 )}
-                <span className="text-sm">{mentorName}</span>
-              </div>
+                <span className="text-sm group-hover:underline underline-offset-2">
+                  {mentorName}
+                </span>
+              </button>
+
               <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <Building2 className="size-6" />
                 <span>{mentor.company}</span>
@@ -122,7 +137,6 @@ export function MentorCard({ mentor }: MentorCardProps) {
                   {mentor.totalEnrollments} Enrollments
                 </span>
               </div>
-
               {mentor.isCertified && (
                 <div className="flex items-center space-x-2">
                   <ShieldCheck className="w-4 h-4" />
@@ -133,7 +147,18 @@ export function MentorCard({ mentor }: MentorCardProps) {
           </div>
         </div>
 
-        <div className="p-6 pt-0">
+        <div className="p-6 pt-0 flex flex-col gap-2">
+          {/* View full profile link */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-muted-foreground hover:text-foreground"
+            onClick={handleViewProfile}
+          >
+            <UserCircle2 className="w-4 h-4 mr-2" />
+            View full profile
+          </Button>
+
           <Button
             onClick={handleSchedule}
             className="w-full bg-black text-white hover:bg-black/90"

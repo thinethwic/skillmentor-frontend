@@ -1,25 +1,25 @@
 import { useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/clerk-react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Star } from "lucide-react";
 import { StatusPill } from "@/components/StatusPill";
 import { getMyEnrollments } from "@/lib/api";
 import type { Enrollment } from "@/types";
 import { useNavigate } from "react-router";
+import { WriteReviewModal } from "@/components/Writereviewmodal";
 
 export default function DashboardPage() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const { user } = useUser();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [reviewTarget, setReviewTarget] = useState<Enrollment | null>(null);
   const router = useNavigate();
 
   useEffect(() => {
     async function fetchEnrollments() {
       if (!user) return;
       const token = await getToken({ template: "skillmentor-auth" });
-      console.log(token);
       if (!token) return;
       try {
-        console.log("Fetching enrollments with token:", token);
         const data = await getMyEnrollments(token);
         setEnrollments(data);
       } catch (err) {
@@ -56,14 +56,18 @@ export default function DashboardPage() {
     );
   }
 
+  const isCompleted = (e: Enrollment) =>
+    e.sessionStatus?.toUpperCase() === "COMPLETED";
+
   return (
     <div className="container py-10">
       <h1 className="text-3xl font-bold tracking-tight mb-6">My Courses</h1>
+
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {enrollments.map((enrollment) => (
           <div
             key={enrollment.id}
-            className="rounded-2xl p-6 relative overflow-hidden bg-linear-to-br from-blue-500 to-blue-600"
+            className="rounded-2xl p-6 relative overflow-hidden bg-linear-to-br from-blue-500 to-blue-600 flex flex-col"
           >
             {/* Status Pill */}
             <div className="absolute top-4 right-4">
@@ -86,7 +90,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Course Info */}
-            <div className="space-y-1">
+            <div className="space-y-1 flex-1">
               <h2 className="text-xl font-semibold text-white">
                 {enrollment.subjectName}
               </h2>
@@ -99,9 +103,29 @@ export default function DashboardPage() {
                 {new Date(enrollment.sessionAt).toLocaleDateString()}
               </div>
             </div>
+
+            {/* Write Review — only on completed sessions */}
+            {isCompleted(enrollment) && (
+              <button
+                onClick={() => setReviewTarget(enrollment)}
+                className="mt-4 flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-sm font-medium transition-colors border border-white/20"
+              >
+                <Star className="w-4 h-4" />
+                Write a review
+              </button>
+            )}
           </div>
         ))}
       </div>
+
+      {/* Write Review Modal */}
+      {reviewTarget && (
+        <WriteReviewModal
+          enrollment={reviewTarget}
+          onClose={() => setReviewTarget(null)}
+          onSubmitted={() => setReviewTarget(null)}
+        />
+      )}
     </div>
   );
 }
