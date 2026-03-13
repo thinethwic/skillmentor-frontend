@@ -88,7 +88,10 @@ export default function SubjectsListPage() {
               />
               Refresh
             </Button>
-            <Button size="sm" onClick={() => navigate("/admin/subjects/new")}>
+            <Button
+              size="sm"
+              onClick={() => navigate("/admin/subjects/create")}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Subject
             </Button>
