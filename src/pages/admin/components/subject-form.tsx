@@ -36,7 +36,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Matches the flat MentorDTO the backend actually returns
 interface MentorOption {
   id: number;
   mentorId: string;
@@ -45,6 +44,8 @@ interface MentorOption {
   email: string;
   title?: string;
 }
+
+type MentorResponse = { content?: MentorOption[] } | MentorOption[];
 
 export function SubjectForm() {
   const navigate = useNavigate();
@@ -67,9 +68,9 @@ export function SubjectForm() {
   useEffect(() => {
     const fetchMentors = async () => {
       try {
-        const data = await publicGet<
-          { content?: MentorOption[] } | MentorOption[]
-        >("/api/v1/mentors?page=0&size=100");
+        const data = (await publicGet(
+          "/api/v1/mentors?page=0&size=100",
+        )) as MentorResponse;
 
         const mentorList = Array.isArray(data) ? data : (data.content ?? []);
 
@@ -93,12 +94,18 @@ export function SubjectForm() {
     try {
       setSubmitting(true);
 
-      await post("/api/v1/subjects", {
+      const payload = {
         subjectName: values.name,
         description: values.description,
-        courseImageUrl: values.courseImageUrl || undefined,
-        mentorId: Number(values.mentorId),
-      });
+        ...(values.courseImageUrl
+          ? { courseImageUrl: values.courseImageUrl }
+          : {}),
+        mentorId: parseInt(values.mentorId, 10),
+      };
+
+      console.log("Submitting payload:", payload);
+
+      await post("/api/v1/subjects", payload);
 
       toast.success("Subject created", {
         description: `${values.name} was added successfully.`,
@@ -171,7 +178,12 @@ export function SubjectForm() {
               name="courseImageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Course Image URL</FormLabel>
+                  <FormLabel>
+                    Course Image URL{" "}
+                    <span className="text-muted-foreground text-sm">
+                      (optional)
+                    </span>
+                  </FormLabel>
                   <FormControl>
                     <Input
                       placeholder="https://example.com/image.jpg"
@@ -192,7 +204,7 @@ export function SubjectForm() {
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
-                    disabled={loadingMentors}
+                    disabled={loadingMentors || mentors.length === 0}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -224,11 +236,11 @@ export function SubjectForm() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate("/admin/Subjects")}
+                onClick={() => navigate("/admin/subjects")}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" disabled={submitting || loadingMentors}>
                 {submitting ? "Creating..." : "Create Subject"}
               </Button>
             </div>
