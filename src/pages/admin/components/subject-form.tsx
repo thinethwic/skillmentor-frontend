@@ -112,7 +112,18 @@ export function SubjectForm() {
       });
 
       navigate("/admin/subjects");
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.status === 409 || error?.response?.status === 409) {
+        toast.error("Subject already exists", {
+          description: `A subject named "${values.name}" already exists. Please use a different name.`,
+        });
+        form.setError("name", {
+          type: "manual",
+          message: "A subject with this name already exists.",
+        });
+        return;
+      }
+
       toast.error("Failed to create subject", {
         description:
           error instanceof Error
