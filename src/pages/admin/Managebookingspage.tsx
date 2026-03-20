@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { toast } from "sonner";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import {
   ArrowUpDown,
   ArrowUp,
@@ -45,7 +45,8 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SessionsResponse = AdminSession[] | { content: AdminSession[] };
+type SessionsApiResponse = AdminSession[] | { content: AdminSession[] };
+
 type SortKey = keyof Pick<
   AdminSession,
   | "id"
@@ -58,30 +59,32 @@ type SortKey = keyof Pick<
 >;
 type SortDir = "asc" | "desc";
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
-function StatusBadge({ value }: { value: string }) {
-  const variants: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    PENDING: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    CONFIRMED: "bg-blue-100 text-blue-800 border-blue-200",
-    SCHEDULED: "bg-blue-100 text-blue-800 border-blue-200",
-    COMPLETED: "bg-green-100 text-green-800 border-green-200",
-    CANCELLED: "bg-red-100 text-red-800 border-red-200",
-    REFUNDED: "bg-gray-100 text-gray-700 border-gray-200",
-  };
+const STATUS_VARIANTS: Record<string, string> = {
+  PENDING: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  CONFIRMED: "bg-blue-100   text-blue-800   border-blue-200",
+  SCHEDULED: "bg-blue-100   text-blue-800   border-blue-200",
+  COMPLETED: "bg-green-100  text-green-800  border-green-200",
+  CANCELLED: "bg-red-100    text-red-800    border-red-200",
+  REFUNDED: "bg-gray-100   text-gray-700   border-gray-200",
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatusBadge({ value }: { value?: string | null }) {
+  const label = value ?? "—";
+  const cls =
+    STATUS_VARIANTS[(value ?? "").toUpperCase()] ??
+    "bg-muted text-muted-foreground border-border";
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-        variants[value] ?? "bg-muted text-muted-foreground border-border"
-      }`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${cls}`}
     >
-      {value}
+      {label}
     </span>
   );
 }
-
-// ─── Sortable header ──────────────────────────────────────────────────────────
 
 function SortableHead({
   label,
@@ -94,9 +97,10 @@ function SortableHead({
   sortKey: SortKey;
   current: SortKey | null;
   dir: SortDir;
-  onSort: (key: SortKey) => void;
+  onSort: (k: SortKey) => void;
 }) {
-  const isActive = current === sortKey;
+  const active = current === sortKey;
+  const Icon = active ? (dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
   return (
     <TableHead
       className="cursor-pointer select-none whitespace-nowrap"
@@ -104,15 +108,7 @@ function SortableHead({
     >
       <div className="flex items-center gap-1">
         {label}
-        {isActive ? (
-          dir === "asc" ? (
-            <ArrowUp className="h-3 w-3" />
-          ) : (
-            <ArrowDown className="h-3 w-3" />
-          )
-        ) : (
-          <ArrowUpDown className="h-3 w-3 opacity-40" />
-        )}
+        <Icon className={`h-3 w-3 ${active ? "" : "opacity-40"}`} />
       </div>
     </TableHead>
   );
@@ -120,13 +116,14 @@ function SortableHead({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 10;
-
 export default function ManageBookingsPage() {
   const { get, patch } = useApi();
 
   const [allBookings, setAllBookings] = useState<AdminSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedBooking, setSelectedBooking] = useState<AdminSession | null>(
+    null,
+  );
 
   // Filters
   const [search, setSearch] = useState("");
@@ -140,22 +137,18 @@ export default function ManageBookingsPage() {
 
   // Pagination
   const [page, setPage] = useState(1);
-
-  // Actions dialog
-  const [selectedBooking, setSelectedBooking] = useState<AdminSession | null>(
-    null,
-  );
+  const [pageSize, setPageSize] = useState(10);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   const fetchBookings = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await get<SessionsResponse>("/api/v1/sessions");
+      const data = await get<SessionsApiResponse>("/api/v1/sessions");
       setAllBookings(Array.isArray(data) ? data : (data.content ?? []));
-    } catch (error) {
+    } catch (err) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to load bookings",
+        err instanceof Error ? err.message : "Failed to load bookings",
       );
     } finally {
       setLoading(false);
@@ -173,9 +166,9 @@ export default function ManageBookingsPage() {
       await patch<void>(`/api/v1/sessions/${id}/payment`);
       toast.success("Payment confirmed");
       fetchBookings();
-    } catch (error) {
+    } catch (err) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to confirm payment",
+        err instanceof Error ? err.message : "Failed to confirm payment",
       );
     }
   };
@@ -185,33 +178,34 @@ export default function ManageBookingsPage() {
       await patch<void>(`/api/v1/sessions/${id}/status`);
       toast.success("Session marked as completed");
       fetchBookings();
-    } catch (error) {
+    } catch (err) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to update session",
+        err instanceof Error ? err.message : "Failed to update session",
       );
     }
   };
 
-  // ── Sort handler ───────────────────────────────────────────────────────────
+  // ── Sort ───────────────────────────────────────────────────────────────────
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+    setSortDir(sortKey === key ? (d) => (d === "asc" ? "desc" : "asc") : "asc");
+    setSortKey(key);
     setPage(1);
   };
 
-  // ── Filter + sort + paginate ───────────────────────────────────────────────
+  // ── Reset page on filter/sort change ──────────────────────────────────────
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, status, dateFrom, dateTo, sortKey, sortDir]);
+
+  // ── Derived: filter + sort ─────────────────────────────────────────────────
 
   const processed = (() => {
     let list = [...allBookings];
 
-    // Search
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const q = search.trim().toLowerCase();
       list = list.filter(
         (b) =>
           (b.mentorName ?? "").toLowerCase().includes(q) ||
@@ -219,37 +213,31 @@ export default function ManageBookingsPage() {
       );
     }
 
-    // Status
     if (status !== "ALL") {
       list = list.filter(
-        (b) =>
-          b.sessionStatus?.toUpperCase() === status ||
-          b.sessionStatus === status,
+        (b) => (b.sessionStatus ?? "").toUpperCase() === status,
       );
     }
 
-    // Date range
     if (dateFrom) {
-      list = list.filter(
-        (b) => b.sessionAt && new Date(b.sessionAt) >= new Date(dateFrom),
-      );
-    }
-    if (dateTo) {
-      list = list.filter(
-        (b) =>
-          b.sessionAt &&
-          new Date(b.sessionAt) <= new Date(dateTo + "T23:59:59"),
-      );
+      const from = new Date(dateFrom);
+      from.setHours(0, 0, 0, 0);
+      list = list.filter((b) => b.sessionAt && new Date(b.sessionAt) >= from);
     }
 
-    // Sort
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      list = list.filter((b) => b.sessionAt && new Date(b.sessionAt) <= to);
+    }
+
     if (sortKey) {
       list.sort((a, b) => {
-        const av = a[sortKey] ?? "";
-        const bv = b[sortKey] ?? "";
-        const cmp = String(av).localeCompare(String(bv), undefined, {
-          numeric: true,
-        });
+        const cmp = String(a[sortKey] ?? "").localeCompare(
+          String(b[sortKey] ?? ""),
+          undefined,
+          { numeric: true },
+        );
         return sortDir === "asc" ? cmp : -cmp;
       });
     }
@@ -257,13 +245,20 @@ export default function ManageBookingsPage() {
     return list;
   })();
 
-  const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
-  const paginated = processed.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(processed.length / pageSize));
+  const paginated = processed.slice((page - 1) * pageSize, page * pageSize);
+  const startItem = processed.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endItem = Math.min(page * pageSize, processed.length);
 
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [search, status, dateFrom, dateTo]);
+  // ─── Page number pills ─────────────────────────────────────────────────────
+
+  const pagePills = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+    .reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
+      if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("ellipsis");
+      acc.push(p);
+      return acc;
+    }, []);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -348,11 +343,11 @@ export default function ManageBookingsPage() {
             </div>
           </div>
 
-          {/* ── Results count ── */}
+          {/* ── Count ── */}
           <p className="text-xs text-muted-foreground">
             {loading
               ? "Loading..."
-              : `${processed.length} session${processed.length !== 1 ? "s" : ""} found`}
+              : `${processed.length} of ${allBookings.length} session${allBookings.length !== 1 ? "s" : ""}`}
           </p>
 
           {/* ── Table ── */}
@@ -430,7 +425,7 @@ export default function ManageBookingsPage() {
                       colSpan={9}
                       className="py-16 text-center text-muted-foreground text-sm"
                     >
-                      No bookings found.
+                      No bookings match your filters.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -469,27 +464,28 @@ export default function ManageBookingsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-wrap justify-end gap-1.5">
-                          {(booking.paymentStatus === "PENDING" ||
-                            booking.paymentStatus === "pending") && (
+                          {(booking.paymentStatus ?? "").toUpperCase() ===
+                            "PENDING" && (
                             <Button
                               size="sm"
                               variant="outline"
                               className="h-7 text-xs"
                               onClick={() => confirmPayment(booking.id)}
                             >
-                              <CreditCard className="h-3 w-3 mr-1" />
-                              Confirm Payment
+                              <CreditCard className="h-3 w-3 mr-1" /> Confirm
+                              Payment
                             </Button>
                           )}
-                          {(booking.sessionStatus === "CONFIRMED" ||
-                            booking.sessionStatus === "SCHEDULED") && (
+                          {["CONFIRMED", "SCHEDULED"].includes(
+                            (booking.sessionStatus ?? "").toUpperCase(),
+                          ) && (
                             <Button
                               size="sm"
                               className="h-7 text-xs"
                               onClick={() => markComplete(booking.id)}
                             >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Mark Complete
+                              <CheckCircle className="h-3 w-3 mr-1" /> Mark
+                              Complete
                             </Button>
                           )}
                           <Button
@@ -498,8 +494,7 @@ export default function ManageBookingsPage() {
                             className="h-7 text-xs"
                             onClick={() => setSelectedBooking(booking)}
                           >
-                            <Link2 className="h-3 w-3 mr-1" />
-                            Meeting Link
+                            <Link2 className="h-3 w-3 mr-1" /> Meeting Link
                           </Button>
                         </div>
                       </TableCell>
@@ -511,66 +506,83 @@ export default function ManageBookingsPage() {
           </div>
 
           {/* ── Pagination ── */}
-          {!loading && totalPages > 1 && (
-            <div className="flex items-center justify-between pt-1">
-              <p className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
-              </p>
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Rows per page</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(Number(v));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="h-8 w-16">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={String(s)}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">
+                {processed.length === 0
+                  ? "No results"
+                  : `${startItem}–${endItem} of ${processed.length}`}
+              </span>
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
+                  disabled={page === 1 || loading}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(
-                    (p) =>
-                      p === 1 || p === totalPages || Math.abs(p - page) <= 1,
-                  )
-                  .reduce<(number | "...")[]>((acc, p, i, arr) => {
-                    if (i > 0 && p - (arr[i - 1] as number) > 1)
-                      acc.push("...");
-                    acc.push(p);
-                    return acc;
-                  }, [])
-                  .map((p, i) =>
-                    p === "..." ? (
-                      <span
-                        key={`ellipsis-${i}`}
-                        className="px-1 text-muted-foreground text-sm"
-                      >
-                        …
-                      </span>
-                    ) : (
-                      <Button
-                        key={p}
-                        variant={page === p ? "default" : "outline"}
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setPage(p as number)}
-                      >
-                        {p}
-                      </Button>
-                    ),
-                  )}
+
+                {pagePills.map((item, idx) =>
+                  item === "ellipsis" ? (
+                    <span
+                      key={`e-${idx}`}
+                      className="px-1 text-muted-foreground text-sm"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <Button
+                      key={item}
+                      variant={page === item ? "default" : "outline"}
+                      size="icon"
+                      className="h-8 w-8 text-xs"
+                      onClick={() => setPage(item as number)}
+                      disabled={loading}
+                    >
+                      {item}
+                    </Button>
+                  ),
+                )}
+
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
+                  disabled={page === totalPages || loading}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* ── Actions dialog (meeting link) ── */}
       <BookingActionsDialog
         open={selectedBooking !== null}
         onOpenChange={(open) => {

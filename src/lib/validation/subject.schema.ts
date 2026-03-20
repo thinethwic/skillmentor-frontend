@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 export const subjectSchema = z.object({
-    name: z.string().min(5, "Subject name must be at least 5 characters"),
+    name: z
+        .string()
+        .min(5, "Subject name must be at least 5 characters")
+        .max(255, "Subject name must not exceed 20 characters"),
     description: z
         .string()
         .min(10, "Description must be at least 10 characters")

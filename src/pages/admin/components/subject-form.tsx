@@ -36,16 +36,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 interface MentorOption {
   id: number;
   mentorId: string;
   firstName: string;
   lastName: string;
   email: string;
-  title?: string;
 }
 
 type MentorResponse = { content?: MentorOption[] } | MentorOption[];
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function SubjectForm() {
   const navigate = useNavigate();
@@ -65,19 +68,17 @@ export function SubjectForm() {
     },
   });
 
+  // ── Fetch mentors ──────────────────────────────────────────────────────────
+
   useEffect(() => {
     const fetchMentors = async () => {
       try {
         const data = (await publicGet(
           "/api/v1/mentors?page=0&size=100",
         )) as MentorResponse;
-
-        const mentorList = Array.isArray(data) ? data : (data.content ?? []);
-
-        console.log("Mentor API response:", mentorList[0]);
-
-        setMentors(mentorList.filter((m) => m?.id));
-      } catch (error) {
+        const list = Array.isArray(data) ? data : (data.content ?? []);
+        setMentors(list.filter((m) => m?.id));
+      } catch {
         toast.error("Failed to load mentors", {
           description:
             "Could not reach the server. Check your connection and refresh.",
@@ -90,55 +91,56 @@ export function SubjectForm() {
     fetchMentors();
   }, []);
 
+  // ── Submit ─────────────────────────────────────────────────────────────────
+
   const onSubmit = async (values: SubjectFormValues) => {
     try {
       setSubmitting(true);
 
-      const payload = {
+      await post("/api/v1/subjects", {
         subjectName: values.name,
         description: values.description,
         ...(values.courseImageUrl
           ? { courseImageUrl: values.courseImageUrl }
           : {}),
         mentorId: parseInt(values.mentorId, 10),
-      };
-
-      console.log("Submitting payload:", payload);
-
-      await post("/api/v1/subjects", payload);
+      });
 
       toast.success("Subject created", {
         description: `${values.name} was added successfully.`,
       });
 
       navigate("/admin/subjects");
-    } catch (error: any) {
-      if (error?.status === 409 || error?.response?.status === 409) {
-        toast.error("Subject already exists", {
-          description: `A subject named "${values.name}" already exists. Please use a different name.`,
-        });
-        form.setError("name", {
-          type: "manual",
-          message: "A subject with this name already exists.",
-        });
-        return;
-      }
+    } catch (err: any) {
+      const status = err?.status ?? err?.response?.status;
 
-      toast.error("Failed to create subject", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "Something went wrong. Please try again.",
-      });
+      // Let the backend message drive the error — 409 can mean duplicate name
+      // OR any other DB constraint violation (e.g. value too long)
+      toast.error(
+        status === 409 ? "Couldn't save subject" : "Failed to create subject",
+        {
+          description:
+            err instanceof Error
+              ? err.message
+              : "Something went wrong. Please try again.",
+        },
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const getMentorLabel = (mentor: MentorOption) => {
-    const name = [mentor.firstName, mentor.lastName].filter(Boolean).join(" ");
-    return name || mentor.email || mentor.mentorId;
-  };
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  const getMentorLabel = ({
+    firstName,
+    lastName,
+    email,
+    mentorId,
+  }: MentorOption) =>
+    [firstName, lastName].filter(Boolean).join(" ") || email || mentorId;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <Card className="mx-auto max-w-3xl rounded-2xl">

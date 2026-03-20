@@ -6,7 +6,6 @@ export interface Subject {
     courseImageUrl: string;
 }
 
-// Modified to match with backend MentorResponseDTO (from GET /api/v1/mentors)
 export interface Mentor {
     id: number;
     mentorId: string;
