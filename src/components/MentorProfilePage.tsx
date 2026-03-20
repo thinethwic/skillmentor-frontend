@@ -9,7 +9,9 @@ import {
   GraduationCap,
   Star,
   Users,
+  MessageSquare,
 } from "lucide-react";
+import { format } from "date-fns";
 
 import { useApi } from "@/lib/api";
 import type { Mentor, Subject } from "@/types";
@@ -23,6 +25,41 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@clerk/clerk-react";
 import { SignupDialog } from "./SignUpDialog";
 import { SchedulingModal } from "./SchedulingModel";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ReviewResponse {
+  id: number;
+  sessionId: number;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  studentName?: string | null;
+}
+
+// ─── Star display ─────────────────────────────────────────────────────────────
+
+function StarRating({
+  rating,
+  size = "sm",
+}: {
+  rating: number;
+  size?: "sm" | "md";
+}) {
+  const dim = size === "md" ? "h-5 w-5" : "h-4 w-4";
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`${dim} transition-colors`}
+          fill={star <= rating ? "#fbbf24" : "none"}
+          stroke={star <= rating ? "#fbbf24" : "#d1d5db"}
+        />
+      ))}
+    </div>
+  );
+}
 
 // ─── Small Components ─────────────────────────────────────────────────────────
 
@@ -125,6 +162,51 @@ function SubjectCard({
   );
 }
 
+function ReviewCard({ review }: { review: ReviewResponse }) {
+  const initials = (review.studentName ?? "S").slice(0, 2).toUpperCase();
+  const LABEL = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
+
+  return (
+    <Card className="rounded-2xl border-border/60 shadow-sm">
+      <CardContent className="p-5 space-y-3">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-9 w-9">
+              <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm font-semibold leading-none">
+                {review.studentName ?? "Student"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {review.createdAt
+                  ? format(new Date(review.createdAt), "dd MMM yyyy")
+                  : "—"}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <StarRating rating={review.rating} />
+            <span className="text-xs text-muted-foreground">
+              {LABEL[review.rating]}
+            </span>
+          </div>
+        </div>
+
+        {/* Comment */}
+        {review.comment && (
+          <p className="text-sm leading-6 text-muted-foreground border-t pt-3">
+            "{review.comment}"
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function MentorProfileSkeleton() {
   return (
     <div className="min-h-screen bg-background">
@@ -173,9 +255,15 @@ export function MentorProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [reviews, setReviews] = useState<ReviewResponse[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+
   const [isSchedulingModalOpen, setIsSchedulingModalOpen] = useState(false);
   const [isSignupDialogOpen, setIsSignupDialogOpen] = useState(false);
   const { isSignedIn } = useAuth();
+
+  // ── Fetch mentor ───────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!id) {
@@ -203,12 +291,39 @@ export function MentorProfilePage() {
     };
 
     fetchMentorProfile();
-
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // ── Fetch reviews once mentor is loaded ────────────────────────────────────
+
+  useEffect(() => {
+    if (!mentor?.id) return;
+
+    let cancelled = false;
+
+    const fetchReviews = async () => {
+      try {
+        setReviewsLoading(true);
+        const data = await api.publicGet<ReviewResponse[]>(
+          `/api/v1/reviews/mentor/${mentor.id}`,
+        );
+        if (!cancelled) setReviews(Array.isArray(data) ? data : []);
+      } catch {
+        // Reviews are optional — fail silently
+      } finally {
+        if (!cancelled) setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
+    return () => {
+      cancelled = true;
+    };
+  }, [mentor?.id]);
+
+  // ── Derived ────────────────────────────────────────────────────────────────
 
   const handleSchedule = () => {
     if (!isSignedIn) {
@@ -229,6 +344,14 @@ export function MentorProfilePage() {
   }, [mentor]);
 
   const subjectCount = mentor?.subjects?.length ?? 0;
+
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) return null;
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return (sum / reviews.length).toFixed(1);
+  }, [reviews]);
+
+  const displayedReviews = showAllReviews ? reviews : reviews.slice(0, 4);
 
   if (loading) return <MentorProfileSkeleton />;
 
@@ -252,7 +375,7 @@ export function MentorProfilePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero */}
+      {/* ── Hero ── */}
       <section className="border-b bg-gradient-to-br from-slate-950 via-slate-900 to-primary/80 text-white">
         <div className="container mx-auto px-4 py-10 md:px-6 lg:px-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -309,22 +432,30 @@ export function MentorProfilePage() {
                       {subjectCount} subjects
                     </Badge>
                   )}
+                  {averageRating && (
+                    <Badge
+                      variant="secondary"
+                      className="rounded-full bg-yellow-500/20 px-3 py-1 text-yellow-300 hover:bg-yellow-500/20 flex items-center gap-1"
+                    >
+                      <Star className="h-3 w-3 fill-yellow-300 stroke-yellow-300" />
+                      {averageRating} ({reviews.length} review
+                      {reviews.length !== 1 ? "s" : ""})
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div>
-              <Button size="lg" className="rounded-xl" onClick={handleSchedule}>
-                <CalendarDays className="mr-2 h-4 w-4" />
-                Schedule a session
-              </Button>
-            </div>
+            <Button size="lg" className="rounded-xl" onClick={handleSchedule}>
+              <CalendarDays className="mr-2 h-4 w-4" />
+              Schedule a session
+            </Button>
           </div>
         </div>
       </section>
 
       <main className="container mx-auto space-y-10 px-4 py-8 md:px-6 lg:px-8">
-        {/* Stats */}
+        {/* ── Stats ── */}
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             icon={Users}
@@ -348,7 +479,7 @@ export function MentorProfilePage() {
           />
         </section>
 
-        {/* About */}
+        {/* ── About ── */}
         <section className="space-y-6">
           <div className="space-y-2">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
@@ -400,7 +531,7 @@ export function MentorProfilePage() {
           </Card>
         </section>
 
-        {/* Subjects */}
+        {/* ── Subjects ── */}
         <section className="space-y-6">
           <div className="space-y-2">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
@@ -435,17 +566,87 @@ export function MentorProfilePage() {
           )}
         </section>
 
-        <SignupDialog
-          isOpen={isSignupDialogOpen}
-          onClose={() => setIsSignupDialogOpen(false)}
-        />
+        {/* ── Reviews ── */}
+        <section className="space-y-6">
+          <div className="flex items-end justify-between">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+                Reviews
+              </p>
+              <h2 className="text-2xl font-bold tracking-tight">
+                Student feedback
+              </h2>
+            </div>
+            {averageRating && (
+              <div className="flex items-center gap-2 text-right">
+                <div>
+                  <p className="text-3xl font-bold leading-none">
+                    {averageRating}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <StarRating
+                  rating={Math.round(Number(averageRating))}
+                  size="md"
+                />
+              </div>
+            )}
+          </div>
 
-        <SchedulingModal
-          isOpen={isSchedulingModalOpen}
-          onClose={() => setIsSchedulingModalOpen(false)}
-          mentor={mentor}
-        />
+          {reviewsLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-36 rounded-2xl" />
+              ))}
+            </div>
+          ) : reviews.length === 0 ? (
+            <Card className="rounded-2xl border-dashed shadow-sm">
+              <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+                <MessageSquare className="h-10 w-10 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">No reviews yet</p>
+                  <p className="text-sm text-muted-foreground">
+                    Be the first to review a session with this mentor.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {displayedReviews.map((review) => (
+                  <ReviewCard key={review.id} review={review} />
+                ))}
+              </div>
+              {reviews.length > 4 && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => setShowAllReviews((v) => !v)}
+                  >
+                    {showAllReviews
+                      ? "Show less"
+                      : `Show all ${reviews.length} reviews`}
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </section>
       </main>
+
+      <SignupDialog
+        isOpen={isSignupDialogOpen}
+        onClose={() => setIsSignupDialogOpen(false)}
+      />
+      <SchedulingModal
+        isOpen={isSchedulingModalOpen}
+        onClose={() => setIsSchedulingModalOpen(false)}
+        mentor={mentor}
+      />
     </div>
   );
 }
