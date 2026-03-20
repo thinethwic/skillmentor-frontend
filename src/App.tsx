@@ -14,6 +14,7 @@ import CreateMentorPage from "@/pages/admin/Creatementorpage";
 import ManageBookingsPage from "@/pages/admin/Managebookingspage";
 import SubjectsListPage from "./pages/admin/SubjectList";
 import { MentorProfilePage } from "./components/MentorProfilePage";
+import AdminOverviewPage from "./pages/admin/Adminoverviewpage";
 
 function App() {
   return (
@@ -70,9 +71,10 @@ function App() {
             </>
           }
         >
-          <Route index element={<Navigate to="subjects/create" replace />} />
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path="overview" element={<AdminOverviewPage />} />
+          <Route path="subjects" element={<SubjectsListPage />} />
           <Route path="subjects/create" element={<CreateSubjectPage />} />
-          <Route path="Subjects" element={<SubjectsListPage />} />
           <Route path="mentors" element={<MentorsPage />} />
           <Route path="mentors/create" element={<CreateMentorPage />} />
           <Route path="bookings" element={<ManageBookingsPage />} />
