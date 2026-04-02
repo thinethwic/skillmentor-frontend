@@ -15,10 +15,12 @@ import ManageBookingsPage from "@/pages/admin/Managebookingspage";
 import SubjectsListPage from "./pages/admin/SubjectList";
 import { MentorProfilePage } from "./components/MentorProfilePage";
 import AdminOverviewPage from "./pages/admin/Adminoverviewpage";
+import { ScrollToTop } from "./components/ScrollToTop";
 
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         {/* Public site layout */}
         <Route element={<Layout />}>

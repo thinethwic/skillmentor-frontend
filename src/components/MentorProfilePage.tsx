@@ -266,7 +266,6 @@ export function MentorProfilePage() {
   // ── Fetch mentor ───────────────────────────────────────────────────────────
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
     if (!id) {
       setLoading(false);
       setError("Mentor ID is missing.");
